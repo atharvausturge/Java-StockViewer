@@ -14,13 +14,15 @@ import java.net.URLEncoder;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
+
 public class App {
     public static void main(String[] args) throws Exception {
         JFrame frame = new JFrame();
         frame.setTitle("Stock Viewer");
         frame.setSize(1080,720);
 
-        // Load API key (from env var STOCK_API_KEY or config.properties)
+        // Load API key 
+
         String apiKey = Config.getApiKey();
         if (apiKey == null || apiKey.isEmpty()) {
             System.err.println("Warning: No stock API key found. Set env var `STOCK_API_KEY` or edit `config.properties`.");
@@ -50,7 +52,9 @@ public class App {
         ChartPanel chart = new ChartPanel();
         chart.setPreferredSize(new java.awt.Dimension(800, 400));
 
-        // Key Press to get Stock Symbol and call API
+        // Key Press to get Stock Symbol and call API.
+        // Hitting Enter will disable the input, fetch data on a background thread,
+        // then update the UI on the Swing event thread.
         textBox.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -64,7 +68,6 @@ public class App {
                     resultsArea.setText("No API key configured. Set `STOCK_API_KEY` or edit `config.properties`.");
                     return;
                 }
-
                 // Disable input while fetching
                 textBox.setEnabled(false);
                 resultsArea.setText("Fetching data for '" + stockSymbol + "'...\n");
@@ -75,6 +78,9 @@ public class App {
                     java.util.List<String> labels = new java.util.ArrayList<>();
                     java.util.List<Double> values = new java.util.ArrayList<>();
                     try {
+                        // Parse the response into (date,label) pairs. The parser is lightweight
+                        // and looks for the Alpha Vantage "Time Series (Daily)" block and
+                        // extracts the "4. close" fields. 200 points max for performance.
                         parseTimeSeries(response, labels, values, 200);
                     } catch (Exception ex) {
                         // ignore parse errors and fall back to raw display
@@ -98,11 +104,13 @@ public class App {
 
         // Add the input panel and results to the frame
         frame.add(inputPanel, BorderLayout.NORTH);
-        // split center: chart on top, raw JSON below
+        // split center: chart in center, raw JSON below
         JPanel center = new JPanel();
         center.setLayout(new BorderLayout());
-        center.add(chart, BorderLayout.NORTH);
-        center.add(scroll, BorderLayout.CENTER);
+        center.add(chart, BorderLayout.CENTER);
+        // make the raw JSON area shorter so the chart has room for labels
+        scroll.setPreferredSize(new java.awt.Dimension(800, 200));
+        center.add(scroll, BorderLayout.SOUTH);
         frame.add(center, BorderLayout.CENTER);
 
         frame.setVisible(true);
@@ -132,10 +140,9 @@ public class App {
         }
     }
 
-    // Fetch daily time series from Alpha Vantage
     private static String fetchTimeSeries(String symbol, String apiKey) {
         try {
-            String urlStr = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + URLEncoder.encode(symbol, "UTF-5") + "&outputsize=compact&apikey=" + URLEncoder.encode(apiKey, "UTF-8");
+            String urlStr = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + URLEncoder.encode(symbol, "UTF-8") + "&outputsize=compact&apikey=" + URLEncoder.encode(apiKey, "UTF-8");
             URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -156,7 +163,17 @@ public class App {
         }
     }
 
-    // Parse a time series from Alpha Vantage JSON (daily or intraday). Fills the provided labels and values lists.
+    /**
+     * Parse a time series from Alpha Vantage JSON (daily or intraday). The parser is
+     * intentionally simple and tolerant: it scans for the "Time Series" block and
+     * extracts the date keys and the "4. close" numeric values. Parsed results are
+     * appended to the provided lists in newest->oldest order (caller may reverse).
+     *
+     * @param response raw JSON response string from Alpha Vantage
+     * @param labels output list to append date labels (e.g., "2025-12-01")
+     * @param values output list to append close values
+     * @param maxPoints limit number of points parsed for performance
+     */
     private static void parseTimeSeries(String response, java.util.List<String> labels, java.util.List<Double> values, int maxPoints) {
         if (response == null || response.isEmpty()) return;
         String marker = "\"Time Series (Daily)\"";
@@ -191,11 +208,17 @@ public class App {
                 if (line.equals("}") || line.startsWith("}\"")) break;
 
                 if (line.startsWith("\"")) {
-                    // date line: "YYYY-MM-DD": {
-                    int q2 = line.indexOf('"', 1);
-                    int q3 = line.indexOf('"', q2 + 1);
-                    if (q2 == -1 || q3 == -1) continue;
-                    String date = line.substring(1, q3);
+                    // Candidate quoted key. Only treat it as a DATE key when it begins
+                    // with a 4-digit year (e.g. "2025-12-19": { ). This avoids
+                    // accidentally interpreting lines like "1. open" or "5. volume" as dates.
+                    int endQuote = line.indexOf('"', 1);
+                    if (endQuote == -1) continue;
+                    String key = line.substring(1, endQuote);
+                    // simple date check: starts with 4 digits (year)
+                    if (key.length() < 4 || !Character.isDigit(key.charAt(0)) || !Character.isDigit(key.charAt(1)) || !Character.isDigit(key.charAt(2)) || !Character.isDigit(key.charAt(3))) {
+                        continue; // not a date key
+                    }
+                    String date = key;
 
                     // read until we find "4. close"
                     String closeLine = rdr.readLine();
