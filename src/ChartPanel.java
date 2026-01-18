@@ -1,10 +1,14 @@
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JLabel;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Color;
 import java.awt.BasicStroke;
 import java.awt.Font;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -12,6 +16,25 @@ import java.util.ArrayList;
 public class ChartPanel extends JPanel {
     private List<Double> values = new ArrayList<>();
     private List<String> labels = new ArrayList<>();
+    
+    // Cache for last computed chart geometry to enable click detection
+    private int lastPadding = 40;
+    private int lastLabelPadding = 40;
+    private int lastGraphWidth = 0;
+    private int lastGraphHeight = 0;
+    private double lastMin = 0;
+    private double lastMax = 0;
+    private double lastRange = 1;
+
+    public ChartPanel() {
+        // Add mouse listener for click detection on data points
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                handlePointClick(e.getX(), e.getY());
+            }
+        });
+    }
 
     public void setSeries(List<String> labels, List<Double> values) {
         // Replace stored series (defensive null handling) and trigger a repaint
@@ -57,11 +80,18 @@ public class ChartPanel extends JPanel {
         // Compute vertical range and avoid division by zero for flat series
         double range = max - min;
         if (range == 0) range = max * 0.1 + 1; // avoid div by zero
-
+        
         int graphWidth = w - 2 * padding - labelPadding;
         int graphHeight = h - 2 * padding;
+        
+        // Cache geometry for mouse click detection
+        lastMin = min;
+        lastMax = max;
+        lastRange = range;
+        lastGraphWidth = graphWidth;
+        lastGraphHeight = graphHeight;
 
-        // Draw axes (vertical and horizontal)
+        // Draw axes 
         g2.setColor(Color.LIGHT_GRAY);
         g2.drawLine(padding + labelPadding, h - padding, padding + labelPadding, padding);
         g2.drawLine(padding + labelPadding, h - padding, w - padding, h - padding);
@@ -97,6 +127,14 @@ public class ChartPanel extends JPanel {
         g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
         g2.drawString(String.format("%.2f", max), 5, padding + 10);
         g2.drawString(String.format("%.2f", min), 5, h - padding);
+        
+        // Draw intermediate y-axis labels (quarters between min and max)
+        int labelSteps = 3; // divide range into quarters
+        for (int step = 1; step < labelSteps; step++) {
+            double value = min + (range / labelSteps) * step;
+            int y = padding + (int) ((max - value) / range * graphHeight);
+            g2.drawString(String.format("%.2f", value), 5, y + 5);
+        }
 
         // Draw a few sparse x-axis labels (up to 6) to avoid clutter
         int labelCount = Math.min(6, labels.size());
@@ -133,6 +171,42 @@ public class ChartPanel extends JPanel {
                 int tx = Math.max(padding + labelPadding, Math.min(x - 20, w - padding - 40));
                 g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
                 g2.drawString(display, tx, h - padding + 15);
+            }
+        }
+    }
+    
+    /**
+     * Handle mouse clicks on data points. Shows a popup with date and price.
+     */
+    private void handlePointClick(int mouseX, int mouseY) {
+        int w = getWidth();
+        int h = getHeight();
+        int padding = lastPadding;
+        int labelPadding = lastLabelPadding;
+        
+        if (values.isEmpty() || lastRange == 0) return;
+        
+        int n = values.size();
+        // Check each point to see if the click is within 8 pixels
+        for (int i = 0; i < n; i++) {
+            Double v = values.get(i);
+            if (v == null) continue;
+            int x = padding + labelPadding + (int) ((double) i / (n - 1) * lastGraphWidth);
+            int y = padding + (int) ((lastMax - v) / lastRange * lastGraphHeight);
+            
+            // Check if click is within 8 pixels of the point
+            if (Math.abs(mouseX - x) <= 8 && Math.abs(mouseY - y) <= 8) {
+                String date = i < labels.size() ? labels.get(i) : "?";
+                String message = String.format("Date: %s\nPrice: $%.2f", date, v);
+                
+                // Show a simple tooltip-like label popup
+                javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
+                javax.swing.JLabel label = new javax.swing.JLabel(message);
+                label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));
+                popup.add(label);
+                popup.show(this, mouseX, mouseY);
+                
+                return;
             }
         }
     }
