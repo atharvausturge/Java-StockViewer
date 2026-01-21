@@ -55,12 +55,13 @@ public class ChartPanel extends JPanel {
         int padding = 40;
         int labelPadding = 40;
 
-        g2.setColor(Color.WHITE);
+        // Black background
+        g2.setColor(Color.BLACK);
         g2.fillRect(0, 0, w, h);
 
         // Nothing to draw if we have no data
         if (values == null || values.isEmpty()) {
-            g2.setColor(Color.BLACK);
+            g2.setColor(Color.WHITE);
             g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
             g2.drawString("No data to display", padding, h/2);
             return;
@@ -91,13 +92,12 @@ public class ChartPanel extends JPanel {
         lastGraphWidth = graphWidth;
         lastGraphHeight = graphHeight;
 
-        // Draw axes 
-        g2.setColor(Color.LIGHT_GRAY);
+        // Draw axes in dark gray
+        g2.setColor(new Color(100, 100, 100));
         g2.drawLine(padding + labelPadding, h - padding, padding + labelPadding, padding);
         g2.drawLine(padding + labelPadding, h - padding, w - padding, h - padding);
 
-        // Draw the polyline connecting close values
-        g2.setColor(new Color(33, 150, 243)); // blue
+        // Draw the polyline connecting close values - green for up, red for down
         g2.setStroke(new BasicStroke(2f));
 
         int n = values.size();
@@ -105,6 +105,12 @@ public class ChartPanel extends JPanel {
             Double v1 = values.get(i);
             Double v2 = values.get(i+1);
             if (v1 == null || v2 == null) continue;
+            // Color: green if price went up, red if down
+            if (v2 >= v1) {
+                g2.setColor(new Color(0, 200, 0)); // green for up
+            } else {
+                g2.setColor(new Color(255, 50, 50)); // red for down
+            }
             int x1 = padding + labelPadding + (int) ((double) i / (n - 1) * graphWidth);
             int x2 = padding + labelPadding + (int) ((double) (i+1) / (n - 1) * graphWidth);
             int y1 = padding + (int) ((max - v1) / range * graphHeight);
@@ -112,8 +118,8 @@ public class ChartPanel extends JPanel {
             g2.drawLine(x1, y1, x2, y2);
         }
 
-        // Draw data points on top of the line
-        g2.setColor(Color.DARK_GRAY);
+        // Draw data points on top of the line in white
+        g2.setColor(Color.WHITE);
         for (int i = 0; i < n; i++) {
             Double v = values.get(i);
             if (v == null) continue;
@@ -122,8 +128,8 @@ public class ChartPanel extends JPanel {
             g2.fillOval(x - 3, y - 3, 6, 6);
         }
 
-        // Draw min/max numeric labels on the left side
-        g2.setColor(Color.BLACK);
+        // Draw min/max numeric labels on the left side in white
+        g2.setColor(Color.WHITE);
         g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
         g2.drawString(String.format("%.2f", max), 5, padding + 10);
         g2.drawString(String.format("%.2f", min), 5, h - padding);
@@ -170,6 +176,7 @@ public class ChartPanel extends JPanel {
                 // ensure label is visible: draw with small font and clamp x
                 int tx = Math.max(padding + labelPadding, Math.min(x - 20, w - padding - 40));
                 g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
+                g2.setColor(Color.WHITE);
                 g2.drawString(display, tx, h - padding + 15);
             }
         }
@@ -199,7 +206,7 @@ public class ChartPanel extends JPanel {
                 String date = i < labels.size() ? labels.get(i) : "?";
                 String message = String.format("Date: %s\nPrice: $%.2f", date, v);
                 
-                // Show a simple tooltip-like label popup
+                // Popup
                 javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
                 javax.swing.JLabel label = new javax.swing.JLabel(message);
                 label.setBorder(javax.swing.BorderFactory.createEmptyBorder(5, 5, 5, 5));

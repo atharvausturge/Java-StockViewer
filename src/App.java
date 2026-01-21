@@ -2,8 +2,6 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
-import javax.swing.JTextArea;
-import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -22,7 +20,6 @@ public class App {
         frame.setSize(1080,720);
 
         // Load API key 
-
         String apiKey = Config.getApiKey();
         if (apiKey == null || apiKey.isEmpty()) {
             System.err.println("Warning: No stock API key found. Set env var `STOCK_API_KEY` or edit `config.properties`.");
@@ -43,36 +40,29 @@ public class App {
         JTextField textBox = new JTextField(20);
         inputPanel.add(textBox, BorderLayout.CENTER);
 
-        // Results area
-        JTextArea resultsArea = new JTextArea();
-        resultsArea.setEditable(false);
-        JScrollPane scroll = new JScrollPane(resultsArea);
-
         // Chart area
         ChartPanel chart = new ChartPanel();
         chart.setPreferredSize(new java.awt.Dimension(800, 400));
 
         // Key Press to get Stock Symbol and call API.
-        // Hitting Enter will disable the input, fetch data on a background thread,
-        // then update the UI on the Swing event thread.
         textBox.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 String stockSymbol = textBox.getText().trim();
                 if (stockSymbol.isEmpty()) {
-                    resultsArea.setText("Please enter a stock symbol.");
+                    System.out.println("Please enter a stock symbol.");
                     return;
                 }
 
                 if (apiKey == null || apiKey.isEmpty()) {
-                    resultsArea.setText("No API key configured. Set `STOCK_API_KEY` or edit `config.properties`.");
+                    System.err.println("No API key configured. Set `STOCK_API_KEY` or edit `config.properties`.");
                     return;
                 }
                 // Disable input while fetching
                 textBox.setEnabled(false);
-                resultsArea.setText("Fetching data for '" + stockSymbol + "'...\n");
+                System.out.println("Fetching data for '" + stockSymbol + "'...");
 
-                // Fetch in background thread to avoid blocking the UI
+                // Fetch in background thread 
                 new Thread(() -> {
                     String response = fetchTimeSeries(stockSymbol, apiKey);
                     java.util.List<String> labels = new java.util.ArrayList<>();
@@ -92,9 +82,9 @@ public class App {
                             java.util.Collections.reverse(values);
                             java.util.Collections.reverse(labels);
                             chart.setSeries(labels, values);
-                            resultsArea.setText("Plotted " + values.size() + " data points for " + stockSymbol);
+                            System.out.println("Plotted " + values.size() + " data points for " + stockSymbol);
                         } else {
-                            resultsArea.setText(response);
+                            System.err.println("Failed to parse data. Response: " + response);
                         }
                         textBox.setEnabled(true);
                     });
@@ -102,43 +92,14 @@ public class App {
             }
         });
 
-        // Add the input panel and results to the frame
+        // Add the input panel and chart to the frame
         frame.add(inputPanel, BorderLayout.NORTH);
-        // split center: chart in center, raw JSON below
-        JPanel center = new JPanel();
-        center.setLayout(new BorderLayout());
-        center.add(chart, BorderLayout.CENTER);
-        // make the raw JSON area shorter so the chart has room for labels
-        scroll.setPreferredSize(new java.awt.Dimension(800, 200));
-        center.add(scroll, BorderLayout.SOUTH);
-        frame.add(center, BorderLayout.CENTER);
+        frame.add(chart, BorderLayout.CENTER);
 
         frame.setVisible(true);
     }
 
     // Fetch stock quote from Alpha Vantage (GLOBAL_QUOTE). Returns raw response string (JSON or error).
-    private static String fetchQuote(String symbol, String apiKey) {
-        try {
-            String urlStr = "https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=" + URLEncoder.encode(symbol, "UTF-8") + "&apikey=" + URLEncoder.encode(apiKey, "UTF-8");
-            URL url = new URL(urlStr);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-
-            int status = conn.getResponseCode();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(status >= 200 && status < 400 ? conn.getInputStream() : conn.getErrorStream(), "UTF-8"));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append('\n');
-            }
-            reader.close();
-            return sb.toString();
-        } catch (Exception ex) {
-            return "Error fetching data: " + ex.getMessage();
-        }
-    }
 
     private static String fetchTimeSeries(String symbol, String apiKey) {
         try {
@@ -163,17 +124,7 @@ public class App {
         }
     }
 
-    /**
-     * Parse a time series from Alpha Vantage JSON (daily or intraday). The parser is
-     * intentionally simple and tolerant: it scans for the "Time Series" block and
-     * extracts the date keys and the "4. close" numeric values. Parsed results are
-     * appended to the provided lists in newest->oldest order (caller may reverse).
-     *
-     * @param response raw JSON response string from Alpha Vantage
-     * @param labels output list to append date labels (e.g., "2025-12-01")
-     * @param values output list to append close values
-     * @param maxPoints limit number of points parsed for performance
-     */
+    
     private static void parseTimeSeries(String response, java.util.List<String> labels, java.util.List<Double> values, int maxPoints) {
         if (response == null || response.isEmpty()) return;
         String marker = "\"Time Series (Daily)\"";
