@@ -186,8 +186,7 @@ public class ChartPanel extends JPanel {
      * Handle mouse clicks on data points. Shows a popup with date and price.
      */
     private void handlePointClick(int mouseX, int mouseY) {
-        int w = getWidth();
-        int h = getHeight();
+        
         int padding = lastPadding;
         int labelPadding = lastLabelPadding;
         
