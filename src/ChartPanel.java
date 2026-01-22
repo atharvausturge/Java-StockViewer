@@ -80,7 +80,7 @@ public class ChartPanel extends JPanel {
 
         // Compute vertical range and avoid division by zero for flat series
         double range = max - min;
-        if (range == 0) range = max * 0.1 + 1; // avoid div by zero
+        if (range == 0) range = max * 0.1 + 1; 
         
         int graphWidth = w - 2 * padding - labelPadding;
         int graphHeight = h - 2 * padding;
@@ -92,7 +92,7 @@ public class ChartPanel extends JPanel {
         lastGraphWidth = graphWidth;
         lastGraphHeight = graphHeight;
 
-        // Draw axes in dark gray
+        // dark gray
         g2.setColor(new Color(100, 100, 100));
         g2.drawLine(padding + labelPadding, h - padding, padding + labelPadding, padding);
         g2.drawLine(padding + labelPadding, h - padding, w - padding, h - padding);
