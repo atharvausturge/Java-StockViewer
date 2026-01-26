@@ -26,6 +26,10 @@ public class ChartPanel extends JPanel {
     private double lastMax = 0;
     private double lastRange = 1;
 
+    /**
+     * Constructs a ChartPanel with a mouse listener for interactive data point selection.
+     * Initializes the panel and sets up click detection on chart data points.
+     */
     public ChartPanel() {
         // Add mouse listener for click detection on data points
         addMouseListener(new MouseAdapter() {
@@ -36,6 +40,17 @@ public class ChartPanel extends JPanel {
         });
     }
 
+    /**
+     * Updates the chart with new data series.
+     * Replaces the current labels and values with the provided lists. If either parameter
+     * is null, an empty ArrayList is used. Automatically triggers a repaint to display
+     * the updated chart.
+     *
+     * @param labels a list of label strings (typically dates) corresponding to each data point,
+     *               or null to display with empty labels
+     * @param values a list of Double values representing the chart data points,
+     *               or null to display an empty chart
+     */
     public void setSeries(List<String> labels, List<Double> values) {
         // Replace stored series (defensive null handling) and trigger a repaint
         this.labels = labels == null ? new ArrayList<>() : labels;
@@ -43,6 +58,20 @@ public class ChartPanel extends JPanel {
         repaint();
     }
 
+    /**
+     * Renders the chart on the panel. This method is called by the Swing framework
+     * whenever the component needs to be redrawn.
+     * 
+     * Draws a line chart with the following features:
+     * - Black background with dark gray axes
+     * - Green lines for upward price movements, red lines for downward movements
+     * - White data point circles at each value
+     * - Y-axis labels showing min, max, and intermediate price values
+     * - X-axis labels showing up to 6 dates (with intelligent formatting)
+     * - A "No data to display" message if the chart is empty
+     *
+     * @param g the Graphics context used for drawing
+     */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -183,7 +212,12 @@ public class ChartPanel extends JPanel {
     }
     
     /**
-     * Handle mouse clicks on data points. Shows a popup with date and price.
+     * Handles mouse clicks on data points and displays a popup tooltip.
+     * When a user clicks within 8 pixels of a data point, this method displays
+     * a popup showing the corresponding date and price value.
+     *
+     * @param mouseX the x-coordinate of the mouse click
+     * @param mouseY the y-coordinate of the mouse click
      */
     private void handlePointClick(int mouseX, int mouseY) {
         
