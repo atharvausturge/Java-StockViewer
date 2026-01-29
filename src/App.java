@@ -19,7 +19,23 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
 
+/**
+ * Stock Viewer Application.
+ * A Java Swing-based GUI application for viewing and charting stock price data.
+ * Fetches historical daily stock prices from Alpha Vantage API and displays them as a chart.
+ * Users can enter a stock symbol to retrieve and visualize its closing prices over time.
+ * 
+ * @author Atharva Usturge
+ */
 public class App {
+    /**
+     * Main entry point for the Stock Viewer application.
+     * Initializes the GUI window with input controls and a chart display.
+     * Sets up an action listener to fetch and display stock data when the user enters a symbol.
+     * 
+     * @param args Command-line arguments (not used)
+     * @throws Exception If an error occurs during initialization
+     */
     public static void main(String[] args) throws Exception {
         JFrame frame = new JFrame();
         frame.setTitle("Stock Viewer");
@@ -105,8 +121,15 @@ public class App {
         frame.setVisible(true);
     }
 
-    // Fetch stock quote from Alpha Vantage (GLOBAL_QUOTE). Returns raw response string (JSON or error).
-
+    /**
+     * Fetches stock time series data from the Alpha Vantage API.
+     * Retrieves daily stock prices for a given symbol using the TIME_SERIES_DAILY function.
+     * The response includes up to 100 data points in compact format.
+     * 
+     * @param symbol The stock symbol to fetch data for (e.g., "AAPL", "GOOGL")
+     * @param apiKey The Alpha Vantage API key for authentication
+     * @return The raw JSON response from the API, or an error message if the request fails
+     */
     private static String fetchTimeSeries(String symbol, String apiKey) {
         try {
             String urlStr = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=" + URLEncoder.encode(symbol, "UTF-8") + "&outputsize=compact&apikey=" + URLEncoder.encode(apiKey, "UTF-8");
@@ -130,7 +153,16 @@ public class App {
         }
     }
 
-    
+    /**
+     * Parses the JSON response from Alpha Vantage API and extracts time series data.
+     * Searches for the "Time Series (Daily)" or similar block in the response and extracts
+     * date labels and closing prices. The results are added to the provided lists.
+     * 
+     * @param response The raw JSON response string from the API
+     * @param labels A list to be populated with date strings (format: YYYY-MM-DD)
+     * @param values A list to be populated with corresponding closing prices as doubles
+     * @param maxPoints The maximum number of data points to extract
+     */
     private static void parseTimeSeries(String response, java.util.List<String> labels, java.util.List<Double> values, int maxPoints) {
         if (response == null || response.isEmpty()) return;
         String marker = "\"Time Series (Daily)\"";
